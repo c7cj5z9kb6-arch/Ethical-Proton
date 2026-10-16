@@ -235,7 +235,7 @@ struct StatusView: View {
             Text(Uninstall.confirmation())
         }
         .confirmationDialog(
-            CrossOverLicense.notActivatedTitle,
+            refusalTitle,
             isPresented: asking(.installUnlicensed),
             titleVisibility: .visible
         ) {
@@ -245,20 +245,28 @@ struct StatusView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                CrossOverLicense.notActivatedAdvice
-                    + String(localized: " NotProton can be deployed, but the CrossOver compatibility tool cannot be installed without a valid license.")
+                refusalAdvice
+                    + String(localized: " NotProton can be deployed, but the CrossOver compatibility tool cannot be installed without a valid license or an active trial.")
             )
         }
         .task { if status.snapshot == nil { await status.refresh() } }
         .confirmationDialog(
-            CrossOverLicense.notActivatedTitle,
+            refusalTitle,
             isPresented: asking(.toolUnlicensed),
             titleVisibility: .visible
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(CrossOverLicense.notActivatedAdvice)
+            Text(refusalAdvice)
         }
+    }
+
+    private var refusalTitle: String {
+        status.refusedLicense?.refusalTitle ?? CrossOverLicense.notActivatedTitle
+    }
+
+    private var refusalAdvice: String {
+        status.refusedLicense?.refusalAdvice ?? CrossOverLicense.notActivatedAdvice
     }
 
     private func asking(_ confirmation: SystemStatus.Confirmation) -> Binding<Bool> {
@@ -576,19 +584,28 @@ struct StatusView: View {
         }
         let build = String(localized: "Build \(SupportedRunners.displayVersion(forID: row.buildID))")
         switch row.copy {
-        case .ready: return build
-        case .none: return build + (row.licensed == false ? String(localized: ", not set up or activated") : String(localized: ", not set up"))
+        case .ready: return build + trialSuffix(row)
+        case .none:
+            if row.licensed == false { return build + String(localized: ", not set up or activated") }
+            return build + String(localized: ", not set up") + trialSuffix(row)
         case .unpatched: return build + String(localized: ", not patched")
         case .damaged: return build + String(localized: ", copy damaged")
         case .unsupported: return build + String(localized: ", not supported")
         }
     }
 
+    private func trialSuffix(_ row: CrossOverRow) -> String {
+        guard let expires = row.trialExpires else { return "" }
+        if row.trialEnded() { return String(localized: ", trial ended") }
+        let day = expires.formatted(date: .abbreviated, time: .omitted)
+        return String(localized: ", trial until \(day)")
+    }
+
     private func crossOverTone(_ row: CrossOverRow) -> StatusTone {
         if row.unsupportedVersion != nil { return .neutral }
         switch row.copy {
         case .none: return row.licensed == false ? .warning : .neutral
-        case .ready: return .ok
+        case .ready: return row.trialEnded() ? .warning : .ok
         case .unpatched, .damaged, .unsupported: return .warning
         }
     }
@@ -600,6 +617,9 @@ struct StatusView: View {
             lines.append(contentsOf: names)
         }
         if row.copy == .none, row.licensed == false { lines.append(String(localized: "Open CrossOver to activate it.")) }
+        if row.copy == .ready, row.trialEnded() {
+            lines.append(String(localized: "Games will not launch with this build until CrossOver is purchased and the build is set up again."))
+        }
         if let install = row.install {
             var path = install.bundle.path(percentEncoded: false)
             if path.count > 1, path.hasSuffix("/") { path.removeLast() }

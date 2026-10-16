@@ -71,6 +71,8 @@ enum RunnerSetup {
         guard status.licensed else {
             throw StepFailure(step: String(localized: "Verify CrossOver license"), detail: status.detail)
         }
+        // Written on every setup, so a build set up again after purchase loses its marker.
+        try TrialMarker.record(status.trialExpires, build: build.id, runners: runners)
 
         try verify(build, root)
 

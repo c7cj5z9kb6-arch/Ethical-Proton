@@ -19,17 +19,20 @@ struct CrossOverRowTests {
         damaged: [String] = [],
         orphaned: [String] = [],
         unpatched: [String] = [],
-        unlicensed: Set<String> = []
+        unlicensed: Set<String> = [],
+        trials: [String: Date] = [:],
+        installTrials: [String: Date] = [:]
     ) -> [CrossOverRow] {
         var licenses: [String: CrossOverLicense.Status] = [:]
         for install in installs {
             licenses[install.id] = CrossOverLicense.Status(
-                licensed: !unlicensed.contains(install.id), detail: "", diagnostic: "test"
+                licensed: !unlicensed.contains(install.id), detail: "", diagnostic: "test",
+                trialExpires: installTrials[install.id]
             )
         }
         return CrossOverRow.rows(
             installs: installs, licenses: licenses, installed: installed,
-            damaged: damaged, orphaned: orphaned, unpatched: unpatched
+            damaged: damaged, orphaned: orphaned, unpatched: unpatched, trials: trials
         )
     }
 
@@ -128,6 +131,26 @@ struct CrossOverRowTests {
         #expect(made.count == 1)
         #expect(made[0].unsupportedVersion == "24.0.5")
         #expect(!made[0].canSetUp)
+    }
+
+    @Test("A trial shows on the row, from CrossOver for an app and from the marker for a copy")
+    func trialShowsOnTheRow() {
+        let release = install("CrossOver", Self.release)
+        let ahead = Date().addingTimeInterval(86_400)
+        let behind = Date().addingTimeInterval(-86_400)
+
+        let fromApp = rows([release], installTrials: [release.id: ahead])
+        #expect(fromApp[0].trialExpires == ahead)
+        #expect(fromApp[0].isTrial)
+        #expect(!fromApp[0].trialEnded())
+
+        let fromCopy = rows([], installed: [Self.release], trials: [Self.release.id: behind])
+        #expect(fromCopy[0].trialExpires == behind)
+        #expect(fromCopy[0].trialEnded())
+
+        let paid = rows([release], installed: [Self.release])
+        #expect(!paid[0].isTrial)
+        #expect(!paid[0].trialEnded())
     }
 }
 

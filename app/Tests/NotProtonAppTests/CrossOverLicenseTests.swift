@@ -259,4 +259,134 @@ struct CrossOverLicenseTests {
         #expect(status.diagnostic.contains("could not be checked"))
         #expect(status.detail == CrossOverLicense.notActivated)
     }
+
+    // Trials
+
+    private static let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private static let day: TimeInterval = 86_400
+
+    private static func trial(_ reading: CrossOverLicense.TrialReading) -> CrossOverLicense.TrialSource {
+        { _ in reading }
+    }
+
+    @Test("No trial is found until a reader for CrossOver's trial lands")
+    func defaultSourceFindsNoTrial() throws {
+        let fix = try Self.fixture()
+        defer { fix.remove() }
+
+        #expect(CrossOverLicense.defaultTrialSource(fix.root) == .notFound)
+        let status = CrossOverLicense.check(crossOverRoot: fix.root, searchDirs: fix.searchDirs)
+        #expect(!status.licensed)
+        #expect(!status.isTrial)
+        #expect(status.detail == CrossOverLicense.notActivated)
+    }
+
+    @Test("An active trial is accepted without a paid license, and says when it ends")
+    func activeTrialIsAccepted() throws {
+        let fix = try Self.fixture()
+        defer { fix.remove() }
+        let expires = Self.now.addingTimeInterval(7 * Self.day)
+
+        let status = CrossOverLicense.check(
+            crossOverRoot: fix.root, searchDirs: fix.searchDirs,
+            trialSource: Self.trial(.active(expires: expires)), now: Self.now
+        )
+        #expect(status.licensed)
+        #expect(status.isTrial)
+        #expect(status.trialExpires == expires)
+        #expect(status.detail == CrossOverLicense.trialActive(until: expires))
+        #expect(status.diagnostic.contains("no CrossOver license file found"))
+        #expect(status.diagnostic.contains("trial active until"))
+    }
+
+    // CrossOver may still call a trial active after its end, if it has not been opened since.
+    @Test("A trial past its end is refused even when it reads as active")
+    func pastTrialIsRefused() throws {
+        let fix = try Self.fixture()
+        defer { fix.remove() }
+
+        for expires in [Self.now.addingTimeInterval(-Self.day), Self.now] {
+            let status = CrossOverLicense.check(
+                crossOverRoot: fix.root, searchDirs: fix.searchDirs,
+                trialSource: Self.trial(.active(expires: expires)), now: Self.now
+            )
+            #expect(!status.licensed)
+            #expect(!status.isTrial)
+            #expect(status.detail == CrossOverLicense.trialEnded)
+        }
+    }
+
+    @Test("An ended trial is refused whether or not its end is known")
+    func endedTrialIsRefused() throws {
+        let fix = try Self.fixture()
+        defer { fix.remove() }
+
+        for reading in [
+            CrossOverLicense.TrialReading.ended(expired: Self.now.addingTimeInterval(-Self.day)),
+            .ended(expired: nil),
+        ] {
+            let status = CrossOverLicense.check(
+                crossOverRoot: fix.root, searchDirs: fix.searchDirs,
+                trialSource: Self.trial(reading), now: Self.now
+            )
+            #expect(!status.licensed)
+            #expect(status.detail == CrossOverLicense.trialEnded)
+            #expect(status.diagnostic.contains("trial ended"))
+        }
+    }
+
+    @Test("A paid license wins over a trial, so its clone carries no trial")
+    func paidLicenseWinsOverTrial() throws {
+        let fix = try Self.fixture()
+        defer { fix.remove() }
+        let license = try Self.writeLicense(in: fix.local)
+        try Self.sign(license, with: fix.key, digest: "-sha256", sidecar: "sha256")
+
+        for reading in [
+            CrossOverLicense.TrialReading.active(expires: Self.now.addingTimeInterval(Self.day)),
+            .ended(expired: nil),
+        ] {
+            let status = CrossOverLicense.check(
+                crossOverRoot: fix.root, searchDirs: fix.searchDirs,
+                trialSource: Self.trial(reading), now: Self.now
+            )
+            #expect(status.licensed)
+            #expect(!status.isTrial)
+            #expect(status.trialExpires == nil)
+        }
+    }
+
+    // A bundle without tie.pub can verify no license, but the trial is CrossOver's own record.
+    @Test("An active trial is accepted even when the bundle has no verification key")
+    func trialDoesNotNeedTheKey() throws {
+        let fix = try Self.fixture(withKey: false)
+        defer { fix.remove() }
+
+        let status = CrossOverLicense.check(
+            crossOverRoot: fix.root, searchDirs: fix.searchDirs,
+            trialSource: Self.trial(.active(expires: Self.now.addingTimeInterval(Self.day))),
+            now: Self.now
+        )
+        #expect(status.licensed)
+        #expect(status.isTrial)
+    }
+
+    @Test("The refusal dialog names an ended trial apart from a CrossOver never activated")
+    func refusalNamesTheReason() throws {
+        let fix = try Self.fixture()
+        defer { fix.remove() }
+
+        let ended = CrossOverLicense.check(
+            crossOverRoot: fix.root, searchDirs: fix.searchDirs,
+            trialSource: Self.trial(.ended(expired: nil)), now: Self.now
+        )
+        #expect(ended.trialHasEnded)
+        #expect(ended.refusalTitle == CrossOverLicense.trialEndedTitle)
+        #expect(ended.refusalAdvice == CrossOverLicense.trialEndedAdvice)
+
+        let never = CrossOverLicense.check(crossOverRoot: fix.root, searchDirs: fix.searchDirs)
+        #expect(!never.trialHasEnded)
+        #expect(never.refusalTitle == CrossOverLicense.notActivatedTitle)
+        #expect(never.refusalAdvice == CrossOverLicense.notActivatedAdvice)
+    }
 }

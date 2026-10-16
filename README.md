@@ -21,6 +21,13 @@ If a game has a native macOS version as well as a Windows one, Steam will downlo
 
 **This project now has a brew cask.** For brew users, you can install via ``brew install --cask notprotonnot/notproton/notproton``
 
+**CrossOver trials (this fork).** A purchased CrossOver license works as before. An active CrossOver trial can also set up the
+compatibility tool. The tool records when the trial ends, and games stop launching from it after that date. Buy CrossOver, then
+set the build up again in NotProton to keep playing. A trial is only recognised once CrossOver's trial reader lands in
+`CrossOverLicense.defaultTrialSource`. Until then, only purchased licenses are accepted. To help build that reader, run
+`sh tools/crossover-trial-probe.sh > crossover-probe.txt` on a Mac with a CrossOver trial. The script only reads, never writes.
+Check the report for anything personal before you share it.
+
 Please read NOTICE for license information.
 
 Please open issue reports with any issues. PRs are welcome and encouraged.

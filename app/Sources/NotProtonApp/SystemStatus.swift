@@ -24,13 +24,20 @@ struct StatusSnapshot: Sendable {
     var installedRunners: [RunnerBuild] = []
     var orphanedRunners: [String] = []
     var damagedRunners: [String] = []
+    // Build to trial expiry, for clones set up under a CrossOver trial.
+    var runnerTrials: [String: Date] = [:]
     var installContent: DeploymentContent.Status = .unchecked
 
     static func capture(bundledVersion: String) -> StatusSnapshot {
         let installs = CrossOverSource.discover()
         var licenses: [String: CrossOverLicense.Status] = [:]
         for install in installs where install.isUsable {
-            licenses[install.id] = CrossOverLicense.check(crossOverRoot: install.crossOverRoot)
+            let status = CrossOverLicense.check(crossOverRoot: install.crossOverRoot)
+            licenses[install.id] = status
+            // A paid license now covers a clone that was set up under a trial.
+            if status.licensed, !status.isTrial, case .supported(let build) = install.support {
+                try? TrialMarker.record(nil, build: build.id)
+            }
         }
 
         let runner = RunnerStore.state()
@@ -47,6 +54,7 @@ struct StatusSnapshot: Sendable {
             installedRunners: installed,
             orphanedRunners: RunnerStore.orphanedClones(),
             damagedRunners: RunnerStore.damagedClones(),
+            runnerTrials: TrialMarker.all(builds: installed.map(\.id)),
             installContent: DeploymentContent.current(version: bundledVersion)
         )
     }
@@ -150,7 +158,8 @@ final class SystemStatus {
             installed: snapshot.installedRunners,
             damaged: snapshot.damagedRunners,
             orphaned: snapshot.orphanedRunners,
-            unpatched: unpatched
+            unpatched: unpatched,
+            trials: snapshot.runnerTrials
         )
     }
 
@@ -168,12 +177,16 @@ final class SystemStatus {
 
     var setupSource: CrossOverInstall? { repairSource ?? usableCrossOver }
 
+    // The verdict the last activation question was asked about, so its dialog names the reason.
+    private(set) var refusedLicense: CrossOverLicense.Status?
+
     func checkLicense(for chosen: CrossOverInstall? = nil) async -> CrossOverLicense.Status? {
         guard let install = chosen ?? usableCrossOver else { return nil }
         let status = await Task.detached(priority: .userInitiated) {
             CrossOverLicense.check(crossOverRoot: install.crossOverRoot)
         }.value
         snapshot?.crossOverLicense[install.id] = status
+        refusedLicense = status.licensed ? nil : status
         return status
     }
 

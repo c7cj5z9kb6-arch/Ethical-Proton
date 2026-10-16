@@ -2,17 +2,43 @@
 // CodeWeavers, I hope this doesn't bother you. You don't validate
 // license when the Wine binary itself is invoked, so I wanted to
 // do something to prevent skids from doing really trivial piracy.
+//
+// An active CrossOver trial is accepted too. The clone made under it carries a
+// TrialMarker, and the run script refuses to launch from it once the trial ends.
 
 import Foundation
 
 enum CrossOverLicense {
 
     struct Status: Sendable {
+        // Whether a runner may be set up: a paid license verified, or a trial is active.
         let licensed: Bool
         let detail: String
         // The real reason, for the log.
         let diagnostic: String
+        // Set only when licensed comes from an active trial, never for a paid license.
+        var trialExpires: Date? = nil
+        // A trial was found and has run out, which the user is told apart from no license.
+        var trialHasEnded = false
+
+        var isTrial: Bool { trialExpires != nil }
+
+        var refusalTitle: String { trialHasEnded ? trialEndedTitle : notActivatedTitle }
+        var refusalAdvice: String { trialHasEnded ? trialEndedAdvice : notActivatedAdvice }
     }
+
+    // What CrossOver reports about its own evaluation period.
+    enum TrialReading: Sendable, Equatable {
+        case notFound
+        case active(expires: Date)
+        case ended(expired: Date?)
+    }
+
+    typealias TrialSource = @Sendable (_ crossOverRoot: URL) -> TrialReading
+
+    // How CrossOver records its trial has not been read off a real install yet. Until a
+    // reader for it lands here, no trial is found and only a paid license is accepted.
+    static let defaultTrialSource: TrialSource = { _ in .notFound }
 
     static let defaultSearchDirs: [URL] = {
         let home = URL(filePath: NSHomeDirectory())
@@ -28,18 +54,59 @@ enum CrossOverLicense {
     static let notActivatedAdvice = String(localized: "Please run CrossOver and try again.")
     static var notActivated: String { "\(notActivatedTitle) \(notActivatedAdvice)" }
 
+    static let trialEndedTitle = String(localized: "The CrossOver trial has ended.")
+    static let trialEndedAdvice = String(localized: "Purchase CrossOver to keep using it with NotProton.")
+    static var trialEnded: String { "\(trialEndedTitle) \(trialEndedAdvice)" }
+
+    static func trialActive(until date: Date) -> String {
+        let day = date.formatted(date: .abbreviated, time: .omitted)
+        return String(localized: "CrossOver trial is active until \(day).")
+    }
+
     static let defaultOpenssl = "/usr/bin/openssl"
 
     static func check(
         crossOverRoot: URL,
         searchDirs: [URL] = defaultSearchDirs,
-        openssl: String = defaultOpenssl
+        openssl: String = defaultOpenssl,
+        trialSource: TrialSource = defaultTrialSource,
+        now: Date = Date()
     ) -> Status {
-        let status = evaluate(
+        let paid = evaluate(
             crossOverRoot: crossOverRoot, searchDirs: searchDirs, openssl: openssl
         )
+        // A paid license wins, so a trial left behind after purchase changes nothing.
+        let status = paid.licensed
+            ? paid
+            : withTrial(paid, reading: trialSource(crossOverRoot), now: now)
         AppLog.note("license: \(status.diagnostic)")
         return status
+    }
+
+    private static func withTrial(_ paid: Status, reading: TrialReading, now: Date) -> Status {
+        switch reading {
+        case .notFound:
+            return paid
+        case .active(let expires) where expires > now:
+            return Status(
+                licensed: true,
+                detail: trialActive(until: expires),
+                diagnostic: "\(paid.diagnostic); trial active until \(expires.ISO8601Format())",
+                trialExpires: expires
+            )
+        case .active(let expires), .ended(let expires?):
+            return Status(
+                licensed: false,
+                detail: trialEnded,
+                diagnostic: "\(paid.diagnostic); trial ended \(expires.ISO8601Format())",
+                trialHasEnded: true
+            )
+        case .ended(nil):
+            return Status(
+                licensed: false, detail: trialEnded, diagnostic: "\(paid.diagnostic); trial ended",
+                trialHasEnded: true
+            )
+        }
     }
 
     private static func evaluate(

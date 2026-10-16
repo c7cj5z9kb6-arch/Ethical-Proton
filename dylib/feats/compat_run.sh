@@ -622,12 +622,29 @@ import_prefix_settings() {
     || echo "=== prefix settings import exited status=$import_status ===" >> "$log" 2>&1 || true
 }
 
+refuse_ended_trial() {
+  # TrialMarker.swift writes the trial's end, in epoch seconds, beside a clone set up
+  # under a CrossOver trial. The clone never asks CrossOver again, so the check is here.
+  trial_file="${CX_ROOT%/CrossOver}/notproton-trial"
+  [ -e "$trial_file" ] || return 0
+  trial_ends=""
+  read -r trial_ends < "$trial_file" || true
+  # A marker that cannot be read counts as ended.
+  case "$trial_ends" in ''|*[!0-9]*) trial_ends=0 ;; esac
+  [ "$(date +%s)" -lt "$trial_ends" ] && return 0
+  echo "=== the CrossOver trial behind build $np_build has ended, purchase CrossOver and set the build up again in NotProton ===" >> "$log" 2>&1 || true
+  show_alert "The CrossOver trial has ended" "$(alert_safe "$np_display") was set up under a CrossOver trial that has ended. Purchase CrossOver, then set this build up again in NotProton."
+  exit 1
+}
+
 stage_step="runner check"
 if [ -z "$np_build" ] || [ ! -d "$CX_ROOT/lib/wine" ]; then
   echo "=== build ${np_build:-(none recorded)} behind this compatibility tool is not set up, set it up in NotProton ===" >> "$log" 2>&1 || true
   show_alert "CrossOver is not set up" "The CrossOver build behind $(alert_safe "$np_display") is not set up. Set it up in NotProton, or pick another compatibility tool for this game."
   exit 1
 fi
+stage_step="trial check"
+refuse_ended_trial
 echo "runner: build $np_build ($np_display) at $CX_ROOT" >> "$log" 2>&1 || true
 
 # Each CrossOver build needs its own template.

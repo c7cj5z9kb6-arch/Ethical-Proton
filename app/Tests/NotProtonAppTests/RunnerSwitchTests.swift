@@ -378,6 +378,22 @@ struct RunnerPrepareTests {
         #expect(toolList(runners) == nil)
     }
 
+    @Test("Preparing under a trial records its end, and preparing after purchase clears it")
+    func trialMarkerFollowsTheLicense() throws {
+        let runners = try makeRunners(cloning: [Self.fex])
+        defer { try? FileManager.default.removeItem(at: runners) }
+        let expires = Date(timeIntervalSince1970: 4_102_444_800)
+        let trial = CrossOverLicense.Status(
+            licensed: true, detail: "trial", diagnostic: "test", trialExpires: expires
+        )
+
+        _ = try prepare(Self.fex, runners: runners, calls: Calls(), license: trial)
+        #expect(TrialMarker.expiry(forBuild: Self.fex.id, runners: runners) == expires)
+
+        _ = try prepare(Self.fex, runners: runners, calls: Calls())
+        #expect(TrialMarker.expiry(forBuild: Self.fex.id, runners: runners) == nil)
+    }
+
     @Test("Installed builds are supported clones that still have their payload")
     func installedBuildsListing() throws {
         let runners = try makeRunners(cloning: [Self.rosetta, Self.fex])
