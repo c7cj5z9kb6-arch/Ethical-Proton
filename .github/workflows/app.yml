@@ -122,6 +122,7 @@ jobs:
           make -s launch-shell
           make -s envcheck
           make -s buildcheck
+          make -s trialcheck
           make -s settingscheck
           make -s routecheck
           make -s bridgecheck

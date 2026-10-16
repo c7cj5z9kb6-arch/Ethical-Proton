@@ -17,6 +17,11 @@ struct CrossOverRow: Identifiable, Equatable {
     let copy: Copy
     let licensed: Bool?
     let unsupportedVersion: String?
+    // When the trial behind this build ends, from CrossOver or from the clone's marker.
+    var trialExpires: Date? = nil
+
+    var isTrial: Bool { trialExpires != nil }
+    func trialEnded(at now: Date = Date()) -> Bool { trialExpires.map { $0 <= now } ?? false }
 
     var id: String { install?.id ?? buildID }
     var build: RunnerBuild? { SupportedRunners.build(id: buildID) }
@@ -32,6 +37,7 @@ struct CrossOverRow: Identifiable, Equatable {
     static func == (a: CrossOverRow, b: CrossOverRow) -> Bool {
         a.buildID == b.buildID && a.install?.id == b.install?.id && a.copy == b.copy
             && a.licensed == b.licensed && a.unsupportedVersion == b.unsupportedVersion
+            && a.trialExpires == b.trialExpires
     }
 
     static func rows(
@@ -40,7 +46,8 @@ struct CrossOverRow: Identifiable, Equatable {
         installed: [RunnerBuild],
         damaged: [String],
         orphaned: [String],
-        unpatched: [String]
+        unpatched: [String],
+        trials: [String: Date] = [:]
     ) -> [CrossOverRow] {
         var rows: [CrossOverRow] = []
         var seen: Set<String> = []
@@ -58,7 +65,8 @@ struct CrossOverRow: Identifiable, Equatable {
                 guard seen.insert(build.id).inserted else { continue }
                 rows.append(CrossOverRow(
                     buildID: build.id, install: install, copy: copy(of: build.id),
-                    licensed: licenses[install.id]?.licensed, unsupportedVersion: nil
+                    licensed: licenses[install.id]?.licensed, unsupportedVersion: nil,
+                    trialExpires: licenses[install.id]?.trialExpires ?? trials[build.id]
                 ))
             case .unsupportedBuild(let version):
                 rows.append(CrossOverRow(
@@ -72,7 +80,8 @@ struct CrossOverRow: Identifiable, Equatable {
         let copies = installed.map(\.id) + damaged
         for build in copies where seen.insert(build).inserted {
             rows.append(CrossOverRow(
-                buildID: build, install: nil, copy: copy(of: build), licensed: nil, unsupportedVersion: nil
+                buildID: build, install: nil, copy: copy(of: build), licensed: nil, unsupportedVersion: nil,
+                trialExpires: trials[build]
             ))
         }
         for build in orphaned where seen.insert(build).inserted {

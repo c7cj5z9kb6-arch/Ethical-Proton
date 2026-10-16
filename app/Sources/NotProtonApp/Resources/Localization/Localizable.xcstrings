@@ -1,12 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    " NotProton can be deployed, but the CrossOver compatibility tool cannot be installed without a valid license." : {
+    " NotProton can be deployed, but the CrossOver compatibility tool cannot be installed without a valid license or an active trial." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : " 可以部署 NotProton，但没有有效许可证时无法安装 CrossOver 兼容工具。"
+            "value" : " 可以部署 NotProton，但没有有效许可证或有效试用期时无法安装 CrossOver 兼容工具。"
           }
         }
       }
@@ -508,6 +508,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "，不受支持"
+          }
+        }
+      }
+    },
+    ", trial ended" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "，试用期已结束"
+          }
+        }
+      }
+    },
+    ", trial until %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "，试用期至 %@"
           }
         }
       }
@@ -1405,6 +1425,16 @@
         }
       }
     },
+    "CrossOver trial is active until %@." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CrossOver 试用期有效，截止至 %@。"
+          }
+        }
+      }
+    },
     "Delete" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1761,6 +1791,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "游戏"
+          }
+        }
+      }
+    },
+    "Games will not launch with this build until CrossOver is purchased and the build is set up again." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在购买 CrossOver 并重新设置此构建版本之前，游戏无法使用此构建版本启动。"
           }
         }
       }
@@ -2514,6 +2554,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "独占空间"
+          }
+        }
+      }
+    },
+    "Purchase CrossOver to keep using it with NotProton." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请购买 CrossOver 以继续配合 NotProton 使用。"
           }
         }
       }
@@ -3587,6 +3637,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ ntdll 的可选头为 %@，预期为 %@。"
+          }
+        }
+      }
+    },
+    "The CrossOver trial has ended." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CrossOver 试用期已结束。"
           }
         }
       }
