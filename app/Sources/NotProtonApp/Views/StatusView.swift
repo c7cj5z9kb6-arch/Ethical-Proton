@@ -235,7 +235,7 @@ struct StatusView: View {
             Text(Uninstall.confirmation())
         }
         .confirmationDialog(
-            CrossOverLicense.notActivatedTitle,
+            refusalTitle,
             isPresented: asking(.installUnlicensed),
             titleVisibility: .visible
         ) {
@@ -245,20 +245,28 @@ struct StatusView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                CrossOverLicense.notActivatedAdvice
+                refusalAdvice
                     + String(localized: " NotProton can be deployed, but the CrossOver compatibility tool cannot be installed without a valid license or an active trial.")
             )
         }
         .task { if status.snapshot == nil { await status.refresh() } }
         .confirmationDialog(
-            CrossOverLicense.notActivatedTitle,
+            refusalTitle,
             isPresented: asking(.toolUnlicensed),
             titleVisibility: .visible
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(CrossOverLicense.notActivatedAdvice)
+            Text(refusalAdvice)
         }
+    }
+
+    private var refusalTitle: String {
+        status.refusedLicense?.refusalTitle ?? CrossOverLicense.notActivatedTitle
+    }
+
+    private var refusalAdvice: String {
+        status.refusedLicense?.refusalAdvice ?? CrossOverLicense.notActivatedAdvice
     }
 
     private func asking(_ confirmation: SystemStatus.Confirmation) -> Binding<Bool> {

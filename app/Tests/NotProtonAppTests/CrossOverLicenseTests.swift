@@ -370,4 +370,23 @@ struct CrossOverLicenseTests {
         #expect(status.licensed)
         #expect(status.isTrial)
     }
+
+    @Test("The refusal dialog names an ended trial apart from a CrossOver never activated")
+    func refusalNamesTheReason() throws {
+        let fix = try Self.fixture()
+        defer { fix.remove() }
+
+        let ended = CrossOverLicense.check(
+            crossOverRoot: fix.root, searchDirs: fix.searchDirs,
+            trialSource: Self.trial(.ended(expired: nil)), now: Self.now
+        )
+        #expect(ended.trialHasEnded)
+        #expect(ended.refusalTitle == CrossOverLicense.trialEndedTitle)
+        #expect(ended.refusalAdvice == CrossOverLicense.trialEndedAdvice)
+
+        let never = CrossOverLicense.check(crossOverRoot: fix.root, searchDirs: fix.searchDirs)
+        #expect(!never.trialHasEnded)
+        #expect(never.refusalTitle == CrossOverLicense.notActivatedTitle)
+        #expect(never.refusalAdvice == CrossOverLicense.notActivatedAdvice)
+    }
 }

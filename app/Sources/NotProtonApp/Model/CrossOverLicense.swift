@@ -18,8 +18,13 @@ enum CrossOverLicense {
         let diagnostic: String
         // Set only when licensed comes from an active trial, never for a paid license.
         var trialExpires: Date? = nil
+        // A trial was found and has run out, which the user is told apart from no license.
+        var trialHasEnded = false
 
         var isTrial: Bool { trialExpires != nil }
+
+        var refusalTitle: String { trialHasEnded ? trialEndedTitle : notActivatedTitle }
+        var refusalAdvice: String { trialHasEnded ? trialEndedAdvice : notActivatedAdvice }
     }
 
     // What CrossOver reports about its own evaluation period.
@@ -93,11 +98,13 @@ enum CrossOverLicense {
             return Status(
                 licensed: false,
                 detail: trialEnded,
-                diagnostic: "\(paid.diagnostic); trial ended \(expires.ISO8601Format())"
+                diagnostic: "\(paid.diagnostic); trial ended \(expires.ISO8601Format())",
+                trialHasEnded: true
             )
         case .ended(nil):
             return Status(
-                licensed: false, detail: trialEnded, diagnostic: "\(paid.diagnostic); trial ended"
+                licensed: false, detail: trialEnded, diagnostic: "\(paid.diagnostic); trial ended",
+                trialHasEnded: true
             )
         }
     }

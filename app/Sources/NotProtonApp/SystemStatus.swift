@@ -177,12 +177,16 @@ final class SystemStatus {
 
     var setupSource: CrossOverInstall? { repairSource ?? usableCrossOver }
 
+    // The verdict the last activation question was asked about, so its dialog names the reason.
+    private(set) var refusedLicense: CrossOverLicense.Status?
+
     func checkLicense(for chosen: CrossOverInstall? = nil) async -> CrossOverLicense.Status? {
         guard let install = chosen ?? usableCrossOver else { return nil }
         let status = await Task.detached(priority: .userInitiated) {
             CrossOverLicense.check(crossOverRoot: install.crossOverRoot)
         }.value
         snapshot?.crossOverLicense[install.id] = status
+        refusedLicense = status.licensed ? nil : status
         return status
     }
 
