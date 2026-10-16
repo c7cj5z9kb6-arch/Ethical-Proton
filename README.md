@@ -7,7 +7,7 @@ We believe that:
 - Open-source software should encourage experimentation, collaboration and accessibility.
 - Discussions about alternatives to CrossOver shouldn't be silenced or banned from communities like Reddit simply because they involve competing software.
 - Mac gamers deserve choices, not lectures about which tools they're allowed to discuss or use.
-- 
+
 We're here to improve compatibility, not judge the people using it.
 
 Ethical-Proton is an independent fork of NotProton, built around the belief that better Mac gaming comes from openness, experimentation and giving users more options.
